@@ -65,7 +65,7 @@ app.get('/mod/:name', async (req, res) => {
 	res.send(result);
 });
 
-app.get('/', (req, res) => res.sendFile(process.cwd() + 'index.html'));
+app.get('/', (req, res) => res.sendFile(process.cwd() + '/index.html'));
 
 app.listen(port, () => {
 	console.log("Server started");
