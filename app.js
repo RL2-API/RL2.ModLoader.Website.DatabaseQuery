@@ -4,6 +4,12 @@ import express from 'express';
 const app = express();
 const port = 4000;
 
+app.use((req, res, next) => {
+    res.append('Access-Control-Allow-Origin', ['*']);
+    res.append('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+    res.append('Access-Control-Allow-Headers', 'Content-Type');
+    next();
+});
 
 const db = createClient({
 	url: process.env.DB_URL,
@@ -50,6 +56,7 @@ app.get('/mod-list', async (req, res) => {
 		await get_mod_data();
 		refetchable = false;
 	}
+	res.set
 	res.send(mod_list_data);
 });
 
