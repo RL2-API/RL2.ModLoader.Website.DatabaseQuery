@@ -65,10 +65,7 @@ app.get('/mod/:name', async (req, res) => {
 	res.send(result);
 });
 
-app.get('/', (req, res) => res.send(
-	`Use the /mod-list route to get the mod list
-	Use the /mod/:name route to fetch data about a specific mod`
-));
+app.get('/', (req, res) => res.sendFile('index.html'));
 
 app.listen(port, () => {
 	console.log("Server started");
