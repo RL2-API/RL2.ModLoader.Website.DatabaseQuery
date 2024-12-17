@@ -21,7 +21,7 @@ let mod_data = {};
 let refetchable = true;
 
 async function refetch_mod_list() {
-	const result = await db.execute("SELECT name, description, author, icon_src FROM shortinfo GROUP BY name");
+	const result = await db.execute("SELECT name, description, author, icon_src FROM shortinfo GROUP BY name ORDER BY id DESC");
 	mod_list_data = result.rows;
 }
 
