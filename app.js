@@ -19,23 +19,29 @@ const db = createClient({
 let mod_list_data = [];
 let mod_data = {};
 let refetchable = true;
+let mods_refetchable = true;
 
 async function refetch_mod_list() {
-	const result = await db.execute("SELECT name, description, author, icon_src FROM shortinfo GROUP BY name ORDER BY MAX(id) DESC");
+	const result = await db.execute(`
+		SELECT info.name, info.author, info.icon_src, info.short_desc
+		FROM info INNER JOIN versions ON info.name == versions.name 
+		GROUP BY info.name 
+		ORDER BY MAX(versions.id) DESC
+	`);
 	mod_list_data = result.rows;
 }
 
 async function get_mod_data() {
 	for (const element of mod_list_data) {
 		const info =  await db.execute(`
-			SELECT DISTINCT shortinfo.name, longinfo.description, longinfo.changelog, shortinfo.icon_src, shortinfo.author
-			FROM longinfo INNER JOIN shortinfo ON longinfo.name = shortinfo.name 
-			WHERE shortinfo.name LIKE '${element.name}'`
+			SELECT DISTINCT info.name, info.long_desc, info.icon_src, info.author
+			FROM info INNER JOIN versions ON info.name = versions.name 
+			WHERE info.name LIKE '${element.name}'`
 		);
 
 		const links = await db.execute(`
-			SELECT link, version
-			FROM shortinfo 
+			SELECT link, version, changelog
+			FROM versions 
 			WHERE name LIKE '${element.name}'
 			ORDER BY version DESC
 		`);
@@ -48,12 +54,14 @@ async function get_mod_data() {
 	}
 }
 
-setInterval(() => { refetchable = true; }, 3 * 60 * 1000); // Refetch mod list every 3 minutes
+setInterval(() => { 
+	refetchable = true; 
+	mods_refetchable = true;
+}, 3 * 60 * 1000); // Refetch mod list every 3 minutes
 
 app.get('/mod-list', async (req, res) => {
 	if (refetchable) {
 		await refetch_mod_list();
-		await get_mod_data();
 		refetchable = false;
 	}
 	
@@ -61,14 +69,13 @@ app.get('/mod-list', async (req, res) => {
 });
 
 app.get('/mod/:name', async (req, res) => {
-	if (refetchable) {
-		await refetch_mod_list();
+	const name = req.params.name.toLowerCase();
+	if (mods_refetchable) {
 		await get_mod_data();
-		refetchable = false;
+		mods_refetchable = false;
 	}
 	
-	const result = mod_data[req.params.name.toLowerCase()];
-
+	const result = mod_data[name];
 	res.send(result);
 });
 
