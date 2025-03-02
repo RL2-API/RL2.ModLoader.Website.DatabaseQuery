@@ -47,7 +47,7 @@ async function get_mod_data() {
 		`);
 
 		const result = {
-			mod_info: info.rows,
+			mod_info: info.rows[0],
 			versions: links.rows,
 		};
 		mod_data[element.name.toLowerCase()] = result;
