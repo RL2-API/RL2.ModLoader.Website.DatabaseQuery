@@ -71,6 +71,10 @@ app.get('/mod-list', async (req, res) => {
 app.get('/mod/:name', async (req, res) => {
 	const name = req.params.name.toLowerCase();
 	if (mods_refetchable) {
+		if (refetchable) {
+			await refetch_mod_list();
+			refetchable = false;
+		}
 		await get_mod_data();
 		mods_refetchable = false;
 	}
