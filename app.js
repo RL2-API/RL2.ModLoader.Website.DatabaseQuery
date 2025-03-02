@@ -56,7 +56,7 @@ app.get('/mod-list', async (req, res) => {
 		await get_mod_data();
 		refetchable = false;
 	}
-	res.set
+	
 	res.send(mod_list_data);
 });
 
@@ -73,24 +73,6 @@ app.get('/mod/:name', async (req, res) => {
 });
 
 app.get('/', (req, res) => res.sendFile(process.cwd() + '/index.html'));
-
-app.get('/mod-list/html-element', async (req, res) => {
-	if (refetchable) {
-		await refetch_mod_list();
-		await get_mod_data();
-		refetchable = false;
-	}
-	
-	const result = mod_list_data;
-	let response = "";
-	result.forEach((value, index) => {
-		response += `
-		<h1>${value.name} by ${value.author}</h1>
-		<p>${value.description}</p>
-		`;
-	});
-	res.send(response);
-})
 
 app.listen(port, () => {
 	console.log("Server started");
