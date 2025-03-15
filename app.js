@@ -32,25 +32,24 @@ async function refetch_mod_list() {
 }
 
 async function get_mod_data() {
+	const info =  await db.execute(`
+		SELECT DISTINCT info.name, info.long_desc, info.icon_src, info.author
+		FROM info
+	`);
+
+	const links = await db.execute(`
+		SELECT name, link, version, changelog
+		FROM versions 
+		ORDER BY version DESC
+	`);
+
 	for (const element of mod_list_data) {
-		const info =  await db.execute(`
-			SELECT DISTINCT info.name, info.long_desc, info.icon_src, info.author
-			FROM info INNER JOIN versions ON info.name = versions.name 
-			WHERE info.name LIKE '${element.name}'`
-		);
-
-		const links = await db.execute(`
-			SELECT link, version, changelog
-			FROM versions 
-			WHERE name LIKE '${element.name}'
-			ORDER BY version DESC
-		`);
-
+		const name = element.name;
 		const result = {
-			mod_info: info.rows[0],
-			versions: links.rows,
+			mod_info: info.rows.filter(row => row.name === name)[0],
+			versions: links.rows.filter(row => row.name === name),
 		};
-		mod_data[element.name.toLowerCase()] = result;
+		mod_data[name.toLowerCase()] = result;
 	}
 }
 
