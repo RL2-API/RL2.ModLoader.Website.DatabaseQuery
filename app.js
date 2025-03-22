@@ -54,7 +54,7 @@ async function get_mod_data() {
 		};
 		mod_data[name.toLowerCase()] = result;
 	}
-	console.log("Start refetching info about specific mods...");
+	console.log("End refetching info about specific mods...");
 }
 
 setInterval(() => { 
