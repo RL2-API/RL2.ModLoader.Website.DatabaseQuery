@@ -22,6 +22,7 @@ let refetchable = true;
 let mods_refetchable = true;
 
 async function refetch_mod_list() {
+	console.log("Start refetching the mod list...");
 	const result = await db.execute(`
 		SELECT info.name, info.author, info.icon_src, info.short_desc
 		FROM info INNER JOIN versions ON info.name == versions.name 
@@ -29,9 +30,11 @@ async function refetch_mod_list() {
 		ORDER BY MAX(versions.id) DESC
 	`);
 	mod_list_data = result.rows;
+	console.log("Finalize refetching the mod list...");
 }
 
 async function get_mod_data() {
+	console.log("Start refetching info about specific mods...");
 	const info =  await db.execute(`
 		SELECT DISTINCT info.name, info.long_desc, info.icon_src, info.author
 		FROM info
@@ -51,6 +54,7 @@ async function get_mod_data() {
 		};
 		mod_data[name.toLowerCase()] = result;
 	}
+	console.log("Start refetching info about specific mods...");
 }
 
 setInterval(() => { 
