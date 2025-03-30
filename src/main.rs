@@ -3,6 +3,7 @@ use libsql::{ Builder, Database };
 use std::sync::{ Arc };
 use std::vec::{ Vec };
 use tokio::sync::{ RwLock };
+use tower_http::cors::{ Any, CorsLayer };
 
 #[shuttle_runtime::main]
 async fn main(
@@ -36,6 +37,11 @@ async fn main(
         sync_auth: sync_auth
     });
 
+    let cors = CorsLayer::new()
+        .allow_methods(Any)
+        .allow_origin(Any)
+        .allow_headers(Any);
+
     let router = Router::new()
         .route("/api", get(homepage))
         .route("/api/mod-list", get(mod_list))
@@ -45,7 +51,8 @@ async fn main(
         .route("/api/run-sync", get(redirect_api))
         .route("/api/run-sync/", get(redirect_api))
         .route("/api/run-sync/{auth}", get(sync_local))
-        .with_state(app_state);
+        .with_state(app_state)
+        .layer(cors);
 
     Ok(router.into())
 }
