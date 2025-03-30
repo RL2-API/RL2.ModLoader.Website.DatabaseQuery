@@ -2,7 +2,7 @@ use axum::{ routing::get, extract::{ State, Path }, http::StatusCode, response::
 use libsql::{ Builder, Database };
 use std::sync::{ Arc };
 use std::vec::{ Vec };
-use tokio::sync::{ Mutex };
+use tokio::sync::{ RwLock };
 
 #[shuttle_runtime::main]
 async fn main(
@@ -30,7 +30,7 @@ async fn main(
     
     // Add local db to shared state
     let app_state = Arc::new(AppState { 
-        db: Arc::new(Mutex::new(db)), 
+        db: Arc::new(RwLock::new(db)), 
         remote_url: db_url,
         auth: auth,
         sync_auth: sync_auth
@@ -52,7 +52,7 @@ async fn main(
 
 #[derive(Clone)]
 struct AppState {
-    db: Arc<Mutex<Database>>,
+    db: Arc<RwLock<Database>>,
     remote_url: String,
     auth: String,
     sync_auth: String
@@ -81,7 +81,7 @@ struct ModListEntry {
 async fn mod_list(
     State(state): State<Arc<AppState>>
 ) -> Result<Json<Vec<ModListEntry>>, StatusCode> {
-    let connection = match state.db.lock().await.connect() {
+    let connection = match state.db.read().await.connect() {
         Ok(val) => val,
         Err(_err) => {
             println!("Connection failed");
@@ -141,7 +141,7 @@ async fn mod_data(
     State(state): State<Arc<AppState>>,
     Path(mod_name): Path<String>
 ) -> Result<Json<ModEntry>, StatusCode> {
-    let connection = match state.db.lock().await.connect() {
+    let connection = match state.db.read().await.connect() {
         Ok(val) => val,
         Err(_err) => {
             println!("Connection failed");
@@ -208,7 +208,7 @@ async fn sync_local(
         return Redirect::to("/api");
     }
 
-    let conn = state.db.lock().await.connect().expect("Loacl connection failed");
+    let conn = state.db.read().await.connect().expect("Local connection failed");
 
     println!("Dropping old tables");
     conn.execute("DROP TABLE info", ()).await.expect("Drop 'info' failed");
