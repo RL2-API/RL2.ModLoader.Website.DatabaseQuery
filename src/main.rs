@@ -185,7 +185,7 @@ async fn mod_data(
             SELECT link, version, changelog
             FROM versions 
             WHERE name LIKE ?1
-            ORDER BY version
+            ORDER BY version DESC
         ", libsql::params![mod_name]).await {
             Ok(val) => val,
             Err(_err) => {
