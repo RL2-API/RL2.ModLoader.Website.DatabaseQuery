@@ -5,36 +5,34 @@ use std::vec::{ Vec };
 use tokio::sync::{ RwLock };
 use tower_http::cors::{ Any, CorsLayer };
 
-#[shuttle_runtime::main]
-async fn main(
-    #[shuttle_runtime::Secrets] secrets: shuttle_runtime::SecretStore
-) -> shuttle_axum::ShuttleAxum {
-    
+#[tokio::main]
+async fn main() {
     // Set up local DB copy
     let db = Builder::new_local("mods.db")
         .build()
         .await.expect("Failed to create local replica");
 
-    let conn = db.connect().expect("Failed to connect to local database");
+    let conn = db.connect().expect("Failed to connect to local replica");
 
     conn.execute("
-        CREATE TABLE IF NOT EXISTS info (author VARCHAR(48), name VARCHAR(64), icon_src TEXT, short_desc VARCHAR(128), long_desc TEXT);
+        CREATE TABLE IF NOT EXISTS info (name VARCHAR(64), author VARCHAR(48), icon_src TEXT, short_desc VARCHAR(128), long_desc TEXT);
     ", ()).await.expect("Failed to create table 'info'");
 
     conn.execute("
         CREATE TABLE IF NOT EXISTS versions (id INTEGER PRIMARY KEY, name VARCHAR(64), link TEXT, version VARCHAR(32), changelog TEXT);
     ", ()).await.expect("Failed to create table 'versions'");
-
-    let db_url = secrets.get("DB_URL").expect("Missing database URL");
-    let auth = secrets.get("AUTH").expect("Missing auth token");
-    let sync_auth = secrets.get("SYNC_AUTH").expect("Missing sync auth token");
+    
+    dotenvy::dotenv().expect("Failed to load .env");
+    let db_url = dotenvy::var("DB_URL").expect("Missing database URL");
+    let auth = dotenvy::var("AUTH").expect("Missing auth token");
+    let sync_auth = dotenvy::var("SYNC_AUTH").expect("Missing sync auth token");
     
     // Add local db to shared state
     let app_state = Arc::new(AppState { 
         db: Arc::new(RwLock::new(db)), 
         remote_url: db_url,
         auth: auth,
-        sync_auth: sync_auth
+        sync_auth: sync_auth.clone()
     });
 
     let cors = CorsLayer::new()
@@ -42,19 +40,16 @@ async fn main(
         .allow_origin(Any)
         .allow_headers(Any);
 
-    let router = Router::new()
+    let app = Router::new()
         .route("/api", get(homepage))
         .route("/api/mod-list", get(mod_list))
-        .route("/api/mod", get(redirect_api))
-        .route("/api/mod/", get(redirect_api))
         .route("/api/mod/{name}", get(mod_data))
-        .route("/api/run-sync", get(redirect_api))
-        .route("/api/run-sync/", get(redirect_api))
         .route("/api/run-sync/{auth}", get(sync_local))
         .with_state(app_state)
         .layer(cors);
 
-    Ok(router.into())
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await.expect("Failed to create a listener");
+    axum::serve(listener, app.into_make_service()).await.expect("Failed to serve the app");
 }
 
 #[derive(Clone)]
@@ -71,10 +66,6 @@ async fn homepage() -> &'static str {
         - GET /api/mod-list - returns a JSON list of all mods sorted by 'recently updated' or HTTP 500
         - GET /api/mod/{name} - returns a JSON object representing info about the mod with the specified name or HTTP 500 if some component fails, or HTTP 404 if the mod doesn't exist
     "
-}
-
-async fn redirect_api() -> Redirect {
-    Redirect::to("/api")
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]

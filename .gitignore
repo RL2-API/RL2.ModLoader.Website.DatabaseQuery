@@ -1,5 +1,4 @@
 target
 Cargo.lock
-.shuttle*
-Secrets.toml
 *.db
+.env
