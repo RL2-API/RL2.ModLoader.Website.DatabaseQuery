@@ -25,13 +25,16 @@ async fn main() {
     dotenvy::dotenv().expect("Failed to load .env");
     let db_url = dotenvy::var("DB_URL").expect("Missing database URL");
     let auth = dotenvy::var("AUTH").expect("Missing auth token");
+    let remote = Builder::new_remote(db_url, auth)
+        .build()
+        .await.expect("Failed to establish connection to remote");
+
     let sync_auth = dotenvy::var("SYNC_AUTH").expect("Missing sync auth token");
     
     // Add local db to shared state
     let app_state = Arc::new(AppState { 
-        db: Arc::new(RwLock::new(db)), 
-        remote_url: db_url,
-        auth: auth,
+        local_db: Arc::new(RwLock::new(db)), 
+        remote_db: Arc::new(RwLock::new(remote)), 
         sync_auth: sync_auth.clone()
     });
 
@@ -54,9 +57,8 @@ async fn main() {
 
 #[derive(Clone)]
 struct AppState {
-    db: Arc<RwLock<Database>>,
-    remote_url: String,
-    auth: String,
+    local_db: Arc<RwLock<Database>>,
+    remote_db: Arc<RwLock<Database>>,
     sync_auth: String
 }
 
@@ -79,7 +81,7 @@ struct ModListEntry {
 async fn mod_list(
     State(state): State<Arc<AppState>>
 ) -> Result<Json<Vec<ModListEntry>>, StatusCode> {
-    let connection = match state.db.read().await.connect() {
+    let connection = match state.local_db.read().await.connect() {
         Ok(val) => val,
         Err(_err) => {
             println!("Connection failed");
@@ -139,7 +141,7 @@ async fn mod_data(
     State(state): State<Arc<AppState>>,
     Path(mod_name): Path<String>
 ) -> Result<Json<ModEntry>, StatusCode> {
-    let connection = match state.db.read().await.connect() {
+    let connection = match state.local_db.read().await.connect() {
         Ok(val) => val,
         Err(_err) => {
             println!("Connection failed");
@@ -206,7 +208,7 @@ async fn sync_local(
         return Redirect::to("/api");
     }
 
-    let conn = state.db.read().await.connect().expect("Local connection failed");
+    let conn = state.local_db.read().await.connect().expect("Local connection failed");
 
     println!("Dropping old tables");
     conn.execute("DROP TABLE info", ()).await.expect("Drop 'info' failed");
@@ -215,17 +217,13 @@ async fn sync_local(
     println!("Creating new tables");
     conn.execute("
         CREATE TABLE IF NOT EXISTS info (name VARCHAR(64), author VARCHAR(48), icon_src TEXT, short_desc VARCHAR(128), long_desc TEXT);
-    ", ()).await.expect("Failed to create table 'info'");
+    ", ()).await.expect("Failed to recreate table 'info'");
 
     conn.execute("
         CREATE TABLE IF NOT EXISTS versions (id INTEGER PRIMARY KEY, name VARCHAR(64), link TEXT, version VARCHAR(32), changelog TEXT);
-    ", ()).await.expect("Failed to create table 'versions'");
+    ", ()).await.expect("Failed to recreate table 'versions'");
     
-    let remote_db = Builder::new_remote(state.remote_url.clone(), state.auth.clone())
-        .build()
-        .await.expect("Failed to establish a connection to the remote");
-    
-    let remote_conn = remote_db.connect().expect("Failed to connect to remote database");
+    let remote_conn = state.remote_db.read().await.connect().expect("Failed to connect to remote database");
     let mut queried_info = remote_conn.query("
         SELECT * FROM info
     ", ()).await.expect("Remote database 'info' query failed");
