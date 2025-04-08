@@ -7,6 +7,7 @@ use tower_http::cors::{ Any, CorsLayer };
 
 #[tokio::main]
 async fn main() {
+    println!("Creating local replica...");
     // Set up local DB copy
     let db = Builder::new_local("mods.db")
         .build()
@@ -22,6 +23,7 @@ async fn main() {
         CREATE TABLE IF NOT EXISTS versions (id INTEGER PRIMARY KEY, name VARCHAR(64), link TEXT, version VARCHAR(32), changelog TEXT);
     ", ()).await.expect("Failed to create table 'versions'");
     
+    println!("Establishing connection to the remote...");
     dotenvy::dotenv().expect("Failed to load .env");
     let db_url = dotenvy::var("DB_URL").expect("Missing database URL");
     let auth = dotenvy::var("AUTH").expect("Missing auth token");
@@ -31,6 +33,7 @@ async fn main() {
 
     let sync_auth = dotenvy::var("SYNC_AUTH").expect("Missing sync auth token");
     
+    println!("Creating app state...");
     // Add local db to shared state
     let app_state = Arc::new(AppState { 
         local_db: Arc::new(RwLock::new(db)), 
@@ -38,11 +41,13 @@ async fn main() {
         sync_auth: sync_auth.clone()
     });
 
+    println!("Setting up CORS...");
     let cors = CorsLayer::new()
         .allow_methods(Any)
         .allow_origin(Any)
         .allow_headers(Any);
 
+    println!("Setting up the router...");
     let app = Router::new()
         .route("/api", get(homepage))
         .route("/api/mod-list", get(mod_list))
@@ -51,8 +56,11 @@ async fn main() {
         .with_state(app_state)
         .layer(cors);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await.expect("Failed to create a listener");
+    println!("Setting up TCP listener...");
+    let tcp_port = dotenvy::var("PORT").expect("Missing TCP port");
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{tcp_port}")).await.expect("Failed to create a listener");
     axum::serve(listener, app.into_make_service()).await.expect("Failed to serve the app");
+    println!("rl2-modloader-db listening on port {}", tcp_port);
 }
 
 #[derive(Clone)]
