@@ -60,7 +60,6 @@ async fn main() {
     let tcp_port = dotenvy::var("PORT").expect("Missing TCP port");
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{tcp_port}")).await.expect("Failed to create a listener");
     axum::serve(listener, app.into_make_service()).await.expect("Failed to serve the app");
-    println!("rl2-modloader-db listening on port {}", tcp_port);
 }
 
 #[derive(Clone)]
